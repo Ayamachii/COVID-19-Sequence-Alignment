@@ -1,0 +1,11 @@
+# Biopython for biological sequence parsing and analysis
+biopython>=1.79
+
+# IPython for interactive displays and HTML rendering
+ipython>=7.0.0
+
+# Matplotlib for plotting and visualization
+matplotlib>=3.0.0
+
+# NumPy for numerical computations
+numpy>=1.21.0
