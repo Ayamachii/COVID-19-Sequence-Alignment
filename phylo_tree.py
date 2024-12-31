@@ -3,10 +3,10 @@ from Bio import SeqIO, AlignIO
 from tempfile import NamedTemporaryFile
 from Bio.Phylo.TreeConstruction import DistanceCalculator, DistanceTreeConstructor
 from Bio import Phylo
-from IPython.display import display, HTML
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import numpy as np
+import csv
 
 
 def align_sequences(case_sequences):
@@ -83,7 +83,7 @@ def print_distance_matrix(matrix):
         print(row_text)
     
     print("-" * 60)
-    print("✅ Genetic Distance Matrix displayed successfully.\n")
+    print("Genetic Distance Matrix displayed successfully.\n")
 
 
 def list_clades(tree_file):
@@ -160,6 +160,20 @@ def display_image(image_path):
     plt.show()
     print("Image displayed successfully.\n")
 
+def save_dict_to_csv(data, file_path):
+    """
+    Save a simple dictionary to a CSV file.
+
+    Parameters:
+        data (dict): Dictionary with key-value pairs.
+        file_path (str): Path to save the CSV file.
+    """
+    with open(file_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(['Key', 'Value'])  # Header
+        for key, value in data.items():
+            writer.writerow([key, value])
+
 
 if __name__ == "__main__":
     print("\nStarting Sequence Processing Pipeline\n")
@@ -189,6 +203,10 @@ if __name__ == "__main__":
         seq.id = f"Omicron_{i+1}"
         seq.name = seq.id
         seq.description = ""
+
+    save_dict_to_csv(names_dict, 'Output_Files\\seq_names.csv')
+    print("Sequence Names Dictionary saved as seq_names.csv")
+
 
     # Combine and align sequences
     combined_sequences = create_combined_sequences(delta_selected, omicron_selected)

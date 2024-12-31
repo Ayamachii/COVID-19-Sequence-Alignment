@@ -4,18 +4,98 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from collections import Counter
 import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+from collections import Counter, defaultdict
+import pandas as pd
 
-def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions):
+def generate_substitution_heatmap(alignment, mode_mismatch_positions, save_path='Output_Files'):
     """
-    Analyze mismatched columns and classify them into Insertion, Deletion, and Substitution.
-    Create a pie chart showing the percentage of each mismatch type.
+    Analyze substitutions from mismatched columns in alignment data and visualize them in a heatmap.
 
     Parameters:
     - alignment (MultipleSeqAlignment): The alignment object.
     - mode_mismatch_positions (list): Indices of mismatched columns.
+    - save_path (str): Directory path to save the heatmap.
 
     Saves:
-    - A pie chart showing mismatch types as 'mismatch_types_pie_chart.png'.
+    - substitution_heatmap.png: Heatmap of substitution frequencies.
+    """
+    print("\nAnalyzing Substitutions from Alignment Data...")
+
+    # Initialize substitution counter
+    substitution_counts = defaultdict(int)
+
+    # Define nucleotide bases
+    nucleotides = ['a', 't', 'g', 'c']
+
+    # Extract substitution mismatches
+    # Substitution Counting Logic with Directionality Preserved
+    for i in mode_mismatch_positions:
+        column_chars = [record.seq[i] for record in alignment]
+        column_chars = [char for char in column_chars if char in nucleotides]  # Exclude gaps or invalid chars
+        
+        if len(set(column_chars)) > 1:  # Check if substitutions exist
+            # Take the first character as reference
+            reference = column_chars[0]
+            for char in column_chars[1:]:
+                if reference != char:
+                    substitution_counts[(reference, char)] += 1
+
+
+    # Print raw substitution counts
+    print("\nSubstitution Counts Breakdown:")
+    total_substitutions = sum(substitution_counts.values())
+    if total_substitutions == 0:
+        print("\nNo substitutions detected! Heatmap will remain empty.")
+        return
+
+    for (orig, sub), count in substitution_counts.items():
+        print(f"{orig} → {sub}: {count}")
+
+    # Create substitution matrix with percentages
+    substitution_matrix = pd.DataFrame(0, index=nucleotides, columns=nucleotides, dtype=float)
+    for (orig, sub), count in substitution_counts.items():
+        if orig in nucleotides and sub in nucleotides:
+            substitution_matrix.at[orig, sub] = (count / total_substitutions) * 100
+
+    # Print substitution matrix
+    print("\nSubstitution Matrix (Percentages):")
+    print(substitution_matrix)
+
+    sns.heatmap(
+    substitution_matrix, 
+    annot=True, 
+    cmap='Blues', 
+    fmt='.2f', 
+    cbar_kws={'label': 'Percentage (%)'},
+    annot_kws={"size": 14}  # Increase font size for annotations
+    )
+    plt.title('Substitution Frequency Heatmap (Percentages)', fontsize=16)
+    plt.xlabel('Substituted Nucleotide', fontsize=14)
+    plt.ylabel('Original Nucleotide', fontsize=14)
+
+    # Save Heatmap
+    plt.savefig(os.path.join(save_path, 'substitution_heatmap.png'), dpi=300, bbox_inches='tight')
+    plt.show()
+
+    print(f"\nHeatmap saved as '{os.path.join(save_path, 'substitution_heatmap.png')}'")
+
+def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions, save_path='Output_Files'):
+    """
+    Analyze mismatched columns and classify them into Insertion, Deletion, and Substitution.
+    Calculate nucleotide frequencies for Insertions and Deletions.
+    Generate a heatmap for Substitutions and visualize all results.
+
+    Parameters:
+    - alignment (MultipleSeqAlignment): The alignment object.
+    - mode_mismatch_positions (list): Indices of mismatched columns.
+    - save_path (str): Directory path to save the plots.
+
+    Saves:
+    - Pie chart for mismatch types.
+    - Bar plots for insertion and deletion nucleotide frequencies.
+    - Heatmap for substitution frequencies.
     """
     print("\nAnalyzing mismatched columns for Insertion, Deletion, and Substitution...")
 
@@ -24,6 +104,9 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions):
 
     # Initialize mismatch counters
     mismatch_counts = {"Insertion": 0, "Deletion": 0, "Substitution": 0}
+    insertion_nucleotides = Counter()
+    deletion_nucleotides = Counter()
+    substitution_counts = defaultdict(int)
 
     for i in mode_mismatch_positions:
         delta_char = delta_consensus[i]
@@ -32,10 +115,13 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions):
 
         if mode_char == '-' and delta_char != '-':
             mismatch_counts["Insertion"] += 1
+            insertion_nucleotides[delta_char] += 1
         elif mode_char != '-' and delta_char == '-':
             mismatch_counts["Deletion"] += 1
+            deletion_nucleotides[mode_char] += 1
         elif mode_char != '-' and delta_char != '-' and mode_char != delta_char:
             mismatch_counts["Substitution"] += 1
+            substitution_counts[(delta_char, mode_char)] += 1
 
     print("\nMismatch Analysis Complete:")
     for mismatch_type, count in mismatch_counts.items():
@@ -45,7 +131,7 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions):
     total_mismatches = sum(mismatch_counts.values())
     mismatch_percentages = {k: (v / total_mismatches) * 100 for k, v in mismatch_counts.items()}
 
-    # Plot the pie chart
+    # Pie Chart for Mismatch Types
     print("\nGenerating mismatch type pie chart...")
     labels = list(mismatch_percentages.keys())
     sizes = list(mismatch_percentages.values())
@@ -53,23 +139,36 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions):
 
     plt.figure(figsize=(8, 8))
     _, _, autotexts = plt.pie(
-    sizes, 
-    labels=labels, 
-    autopct='%1.1f%%', 
-    startangle=140, 
-    colors=colors,
-    textprops={'fontsize': 14}  # Set font size for labels and percentages
+        sizes, 
+        labels=labels, 
+        autopct='%1.1f%%', 
+        startangle=140, 
+        colors=colors,
+        textprops={'fontsize': 14}
     )
-
-    # Manually adjust the font size of the percentage text
     for autotext in autotexts:
-        autotext.set_fontsize(18)  # Increase the font size of percentage labels
-        autotext.set_color('black')  # Optional: Set the color of the percentage text
+        autotext.set_fontsize(18)
+        autotext.set_color('black')
 
     plt.title('Distribution of Mismatch Types (Insertion, Deletion, Substitution)')
-    plt.savefig('Output_Files\\mismatch_types_pie_chart.png', dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(save_path, 'mismatch_types_pie_chart.png'), dpi=300, bbox_inches='tight')
+    plt.show()
 
-    print("Pie chart saved to 'Output_Files\\mismatch_types_pie_chart.png'.")
+    # Bar Charts for Insertions and Deletions
+    print("\nGenerating insertion and deletion bar charts...")
+    for label, nucleotide_counts in zip(["Insertion", "Deletion"], [insertion_nucleotides, deletion_nucleotides]):
+        plt.figure(figsize=(8, 6))
+        nucleotides, counts = zip(*nucleotide_counts.items()) if nucleotide_counts else ([], [])
+        plt.bar(nucleotides, counts)
+        plt.title(f'{label} Nucleotide Frequencies')
+        plt.xlabel('Nucleotide', fontsize=14)
+        plt.ylabel('Count', fontsize=14)
+        plt.savefig(os.path.join(save_path, f'{label.lower()}_nucleotide_frequencies.png'), dpi=300, bbox_inches='tight')
+        plt.show()
+
+    generate_substitution_heatmap(alignment, mode_mismatch_positions, save_path='Output_Files')
+
+    print(f"\nAll visualizations saved in '{save_path}'. Analysis complete!")
 
 
 def extract_columns_consensus_vs_mode(alignment, exclude_unknowns=False):
@@ -210,9 +309,6 @@ def group_indices(indices):
     
     return regions, len(regions), single_columns
 
-import matplotlib.pyplot as plt
-import os
-
 def visualize_regions(regions, num_regions, single_columns, save_path='Output_Files\\'):
     """
     Visualizes statistics and insights about grouped regions and single columns.
@@ -227,15 +323,16 @@ def visualize_regions(regions, num_regions, single_columns, save_path='Output_Fi
     
     # Statistics
     region_sizes = [len(region) for region in regions]
+
     max_region_size = max(region_sizes) if region_sizes else 0
     min_region_size = min(region_sizes) if region_sizes else 0
     total_indices = sum(region_sizes) + single_columns
     coverage_by_regions = sum(region_sizes)
     percentage_single_columns = (single_columns / total_indices) * 100 if total_indices > 0 else 0
     
-    # Display Statistics
+    # Print to termial
     print(f"Number of Originally Extracted Indices: {total_indices}")
-    print("Grouped Regions:", regions)
+    # print("Grouped Regions:", regions)
     print(f"Number of Regions: {num_regions}")
     print(f"Number of Single Columns: {single_columns}")
     print(f"Largest Region Size: {max_region_size}")

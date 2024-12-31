@@ -9,3 +9,9 @@ matplotlib>=3.0.0
 
 # NumPy for numerical computations
 numpy>=1.21.0
+
+# Pandas for Data Handling
+pandas==2.2.3
+
+# Seaborn for Visualizations 
+seaborn==0.13.2
