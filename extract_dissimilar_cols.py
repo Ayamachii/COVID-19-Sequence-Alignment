@@ -52,10 +52,22 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions):
     colors = ['skyblue', 'lightcoral', 'gold']
 
     plt.figure(figsize=(8, 8))
-    plt.pie(sizes, labels=labels, autopct='%1.1f%%', startangle=140, colors=colors)
+    _, _, autotexts = plt.pie(
+    sizes, 
+    labels=labels, 
+    autopct='%1.1f%%', 
+    startangle=140, 
+    colors=colors,
+    textprops={'fontsize': 14}  # Set font size for labels and percentages
+    )
+
+    # Manually adjust the font size of the percentage text
+    for autotext in autotexts:
+        autotext.set_fontsize(18)  # Increase the font size of percentage labels
+        autotext.set_color('black')  # Optional: Set the color of the percentage text
+
     plt.title('Distribution of Mismatch Types (Insertion, Deletion, Substitution)')
     plt.savefig('Output_Files\\mismatch_types_pie_chart.png', dpi=300, bbox_inches='tight')
-    plt.close()
 
     print("Pie chart saved to 'Output_Files\\mismatch_types_pie_chart.png'.")
 
