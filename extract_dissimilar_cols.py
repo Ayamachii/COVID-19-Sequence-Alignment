@@ -168,6 +168,100 @@ def run_mafft_add(delta_file, omicron_file, output_file):
         print(f"An error occurred while running MAFFT: {e.stderr}")
         return []
 
+def group_indices(indices):
+    if not indices:
+        return [], 0, 0
+    
+    indices = sorted(set(indices))  # Ensure sorted and no duplicates
+    regions = []
+    single_columns = 0
+    
+    current_region = [indices[0]]
+    
+    for i in range(1, len(indices)):
+        if indices[i] == indices[i-1] + 1:
+            # Successive index, add to current region
+            current_region.append(indices[i])
+        else:
+            # End of a region
+            if len(current_region) == 1:
+                single_columns += 1
+            else:
+                regions.append(current_region)
+            current_region = [indices[i]]
+    
+    # Handle the last region
+    if len(current_region) == 1:
+        single_columns += 1
+    else:
+        regions.append(current_region)
+    
+    return regions, len(regions), single_columns
+
+import matplotlib.pyplot as plt
+import os
+
+def visualize_regions(regions, num_regions, single_columns, save_path='Output_Files\\'):
+    """
+    Visualizes statistics and insights about grouped regions and single columns.
+    
+    Parameters:
+        regions (list): A list of grouped regions (each region is a list of indices).
+        num_regions (int): The number of grouped regions.
+        single_columns (int): The number of single isolated indices.
+        save_path (str): The directory path where figures will be saved. Default is 'figures'.
+    
+    """
+    
+    # Statistics
+    region_sizes = [len(region) for region in regions]
+    max_region_size = max(region_sizes) if region_sizes else 0
+    min_region_size = min(region_sizes) if region_sizes else 0
+    total_indices = sum(region_sizes) + single_columns
+    coverage_by_regions = sum(region_sizes)
+    percentage_single_columns = (single_columns / total_indices) * 100 if total_indices > 0 else 0
+    
+    # Display Statistics
+    print(f"Number of Originally Extracted Indices: {total_indices}")
+    print("Grouped Regions:", regions)
+    print(f"Number of Regions: {num_regions}")
+    print(f"Number of Single Columns: {single_columns}")
+    print(f"Largest Region Size: {max_region_size}")
+    print(f"Smallest Region Size: {min_region_size}")
+    print(f"Coverage by Regions: {coverage_by_regions}")
+    print(f"Percentage of Single Columns: {percentage_single_columns:.2f}%")
+    
+    # Visualization 1: Bar Plot of Region Sizes
+    plt.figure(figsize=(10, 6))
+    plt.bar(range(len(region_sizes)), region_sizes)
+    plt.title('Sizes of Grouped Regions')
+    plt.xlabel('Region Index')
+    plt.ylabel('Size of Region')
+    plt.savefig(os.path.join(save_path, 'region_sizes_bar_plot.png'))
+    plt.show()
+    
+    # Visualization 2: Pie Chart of Single Columns vs Grouped Regions
+    labels = ['Grouped Indices', 'Single Columns']
+    sizes = [coverage_by_regions, single_columns]
+    plt.figure(figsize=(8, 8))
+    plt.pie(sizes, labels=labels, autopct='%1.1f%%')
+    plt.title('Proportion of Grouped Indices vs Single Columns')
+    plt.savefig(os.path.join(save_path, 'grouped_vs_single_pie_chart.png'))
+    plt.show()
+    
+    # Visualization 3: Scatter Plot of All Indices
+    all_indices = [index for region in regions for index in region] + [single_columns]
+    plt.figure(figsize=(10, 3))
+    plt.scatter(all_indices, [1] * len(all_indices), label='All Indices')
+    for region in regions:
+        plt.scatter(region, [1] * len(region), label=f'Region {region[0]}-{region[-1]}')
+    plt.title('Distribution of Indices')
+    plt.xlabel('Index Value')
+    plt.yticks([])
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
+    plt.savefig(os.path.join(save_path, 'indices_distribution_scatter_plot.png'))
+    plt.show()
+
 
 if __name__ == "__main__":
     print("\nStarting Sequence Processing Pipeline\n")
@@ -195,8 +289,12 @@ if __name__ == "__main__":
     print('\n')
     save_to_fasta_with_indices(extracted, consensus_indices)
 
-    print("\n🔹 Analyzing mismatch types...")
+    print("\nAnalyzing mismatch types...")
     analyze_and_visualize_mismatches(alignment, consensus_indices)
+
+    # Group Indices
+    regions, num_regions, single_columns = group_indices(consensus_indices)
+    visualize_regions(regions, num_regions, single_columns)
 
     print('\n')
     _, _ = extract_columns_consensus_vs_mode(alignment, exclude_unknowns=False)
