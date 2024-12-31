@@ -31,7 +31,7 @@ def align_sequences(case_sequences):
         # Specify the full path to the MAFFT executable
         mafft_path = r"mafft-7.526-win64-signed\\mafft-win\\mafft.bat"
         
-        # Construct the MAFFT command
+        # Construct the MAFFT command, --auto aligns separate sequences into a MS Alignment unlike --add which adds a sequence to an alignment
         cmd = [mafft_path, "--auto", tmp_input.name]
         
         try:
@@ -68,16 +68,14 @@ def print_distance_matrix(matrix):
     print(header)
     print("-" * len(header))
 
-    # Print matrix rows with diagonal highlighted
+    # Print matrix rows
     for i, (name, row) in enumerate(zip(names, matrix)):
         row_values = []
         for j, value in enumerate(row):
-            if i == j:
-                # Highlight diagonal values (self-comparisons)
-                row_values.append(f"{value:.4f}")
-                # row_values.append(f"\033[93m{value:.4f}\033[0m")  # Highlight in ipynb
-            else:
-                row_values.append(f"{value:.4f}")
+            # if i == j:
+            #     row_values.append(f"{value:.4f}")
+            # else:
+            row_values.append(f"{value:.4f}")
         
         row_text = f"{name:<{name_width}}" + "".join(f"{val:>{name_width}}" for val in row_values)
         print(row_text)
@@ -85,17 +83,36 @@ def print_distance_matrix(matrix):
     print("-" * 60)
     print("Genetic Distance Matrix displayed successfully.\n")
 
-
 def list_clades(tree_file):
+    """
+    List and display information about all clades in a phylogenetic tree.
+    - Parses a phylogenetic tree from a Newick file.
+    - Identifies all clades (branches) in the tree.
+    - Prints the total number of clades.
+    - For each clade, displays the number of descendant taxa (terminal nodes)
+        and their names.
+
+    Parameters:
+        tree_file (str): Path to the tree file in Newick format.
+    """
     tree = Phylo.read(tree_file, "newick")
+    
+    # Retrieve all clades (nodes and branches) from the tree
     all_clades = list(tree.find_clades())
+    
+    # Print the total number of clades
     print(f"Total number of clades: {len(all_clades)}")
     print("Clades details:")
+    
+    # Iterate through each clade and display its details
     for i, clade in enumerate(all_clades, 1):
+        # Get all terminal nodes (taxa) descending from the current clade
         descendants = [desc.name for desc in clade.get_terminals()]
+        
         print(f"Clade {i}: Contains {len(descendants)} taxa")
         print("Descendants:", descendants)
     print("-" * 60)
+
 
 def calculate_min_max_distances(matrix):
     dist_array = np.array(matrix)
@@ -125,12 +142,9 @@ def calculate_min_max_distances(matrix):
     print(f"Most distant sequences are between {matrix.names[max_indices[0][0]]} and {matrix.names[max_indices[1][0]]}.")
     print("-" * 60)
 
-
-
-
 def create_combined_sequences(delta_selected, omicron_selected):
     """
-    Joins the 10 Delta selected sequences with the selected Omicron sequences.
+    Joins the 10 Delta selected sequences with the 10 selected Omicron sequences.
 
     Parameters:
     - delta_selected (list): List of selected Delta sequences.
@@ -156,13 +170,16 @@ def display_image(image_path):
     img = mpimg.imread(image_path)
     plt.figure(figsize=(10, 8))
     plt.imshow(img)
-    plt.axis('off')  # Turn off axis numbers and ticks
+
+    # Turn off axis numbers and ticks
+    plt.axis('off')  
     plt.show()
     print("Image displayed successfully.\n")
 
 def save_dict_to_csv(data, file_path):
     """
-    Save a simple dictionary to a CSV file.
+    Save a simple dictionary to a CSV file, used to save the mapping between 
+    sequence ids and their names in the phylogenetic tree
 
     Parameters:
         data (dict): Dictionary with key-value pairs.
@@ -170,12 +187,13 @@ def save_dict_to_csv(data, file_path):
     """
     with open(file_path, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(['Key', 'Value'])  # Header
+        writer.writerow(['Key', 'Value'])  # Header row at the beginning
         for key, value in data.items():
             writer.writerow([key, value])
 
 
 if __name__ == "__main__":
+
     print("\nStarting Sequence Processing Pipeline\n")
 
     # Indices of the 10 chosen sequences from both files
@@ -225,7 +243,6 @@ if __name__ == "__main__":
     print("Genetic distance matrix calculated.")
 
     print_distance_matrix(distance_matrix)
-
 
     # Calculate minimum and maximum distances
     calculate_min_max_distances(distance_matrix)

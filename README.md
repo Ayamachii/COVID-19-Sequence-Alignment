@@ -61,6 +61,8 @@ pip install -r requirements.txt
 - **Phylo_Tree.png:** Phylogenetic tree visualization.  
 - **region_sizes_bar_plot.png:** Bar plot showing the **lengths of dissimilar regions**.  
 - **substitution_heatmap.png:** Heatmap showing **substitution combinations percentages**.
+- **single_columns_scatter_plot:** The scatter plot of the indices of SNPs in the alignment of 11 sequences.
+- **regions_scatter_plot:** The scatter plot of the indices and lengths of dissimilar regions in the alignment of 11 sequences
 
 ---
 

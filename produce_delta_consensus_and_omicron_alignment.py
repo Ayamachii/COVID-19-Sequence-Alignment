@@ -157,9 +157,6 @@ def process_files(delta_path, omicron_path):
     print('*'*100)
 
 
-# -------------------------------
-# Main Function
-# -------------------------------
 if __name__ == "__main__":
     # Predefined indices for sequence selection
     indices = [0, 1, 3, 6, 7, 8, 9, 11, 13, 14]

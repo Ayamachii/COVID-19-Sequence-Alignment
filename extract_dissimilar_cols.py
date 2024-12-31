@@ -8,84 +8,23 @@ import seaborn as sns
 import os
 from collections import Counter, defaultdict
 import pandas as pd
+import random
 
-def generate_substitution_heatmap(alignment, mode_mismatch_positions, save_path='Output_Files'):
-    """
-    Analyze substitutions from mismatched columns in alignment data and visualize them in a heatmap.
-
-    Parameters:
-    - alignment (MultipleSeqAlignment): The alignment object.
-    - mode_mismatch_positions (list): Indices of mismatched columns.
-    - save_path (str): Directory path to save the heatmap.
-
-    Saves:
-    - substitution_heatmap.png: Heatmap of substitution frequencies.
-    """
-    print("\nAnalyzing Substitutions from Alignment Data...")
-
-    # Initialize substitution counter
-    substitution_counts = defaultdict(int)
-
-    # Define nucleotide bases
-    nucleotides = ['a', 't', 'g', 'c']
-
-    # Extract substitution mismatches
-    # Substitution Counting Logic with Directionality Preserved
-    for i in mode_mismatch_positions:
-        column_chars = [record.seq[i] for record in alignment]
-        column_chars = [char for char in column_chars if char in nucleotides]  # Exclude gaps or invalid chars
-        
-        if len(set(column_chars)) > 1:  # Check if substitutions exist
-            # Take the first character as reference
-            reference = column_chars[0]
-            for char in column_chars[1:]:
-                if reference != char:
-                    substitution_counts[(reference, char)] += 1
-
-
-    # Print raw substitution counts
-    print("\nSubstitution Counts Breakdown:")
-    total_substitutions = sum(substitution_counts.values())
-    if total_substitutions == 0:
-        print("\nNo substitutions detected! Heatmap will remain empty.")
-        return
-
-    for (orig, sub), count in substitution_counts.items():
-        print(f"{orig} → {sub}: {count}")
-
-    # Create substitution matrix with percentages
-    substitution_matrix = pd.DataFrame(0, index=nucleotides, columns=nucleotides, dtype=float)
-    for (orig, sub), count in substitution_counts.items():
-        if orig in nucleotides and sub in nucleotides:
-            substitution_matrix.at[orig, sub] = (count / total_substitutions) * 100
-
-    # Print substitution matrix
-    print("\nSubstitution Matrix (Percentages):")
-    print(substitution_matrix)
-
-    sns.heatmap(
-    substitution_matrix, 
-    annot=True, 
-    cmap='Blues', 
-    fmt='.2f', 
-    cbar_kws={'label': 'Percentage (%)'},
-    annot_kws={"size": 14}  # Increase font size for annotations
-    )
-    plt.title('Substitution Frequency Heatmap (Percentages)', fontsize=16)
-    plt.xlabel('Substituted Nucleotide', fontsize=14)
-    plt.ylabel('Original Nucleotide', fontsize=14)
-
-    # Save Heatmap
-    plt.savefig(os.path.join(save_path, 'substitution_heatmap.png'), dpi=300, bbox_inches='tight')
-    plt.show()
-
-    print(f"\nHeatmap saved as '{os.path.join(save_path, 'substitution_heatmap.png')}'")
+from collections import defaultdict, Counter
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import os
 
 def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions, save_path='Output_Files'):
     """
     Analyze mismatched columns and classify them into Insertion, Deletion, and Substitution.
     Calculate nucleotide frequencies for Insertions and Deletions.
     Generate a heatmap for Substitutions and visualize all results.
+    For Justifying getting the mode (as if getting the Omicron consensus) to compare to the delta consesnsus
+    This is more logical than comparing if there was any discrepancy between any 2 of the 11 characters
+    since if there was a descrepancy between two of the omicron sequences, it dorsn't indicate a difference between
+    omicron and delta, which is our interest here.
 
     Parameters:
     - alignment (MultipleSeqAlignment): The alignment object.
@@ -109,17 +48,21 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions, save_pa
     substitution_counts = defaultdict(int)
 
     for i in mode_mismatch_positions:
+        # get chracter at position i in delta consensus
         delta_char = delta_consensus[i]
+
+        # get the most common character in the 10 aligned Omicron seqs (as if consensus)
         omicron_column = [record.seq[i] for record in omicron_sequences]
         mode_char, _ = Counter(omicron_column).most_common(1)[0]
 
+        # Count each case for each nucleotide
         if mode_char == '-' and delta_char != '-':
             mismatch_counts["Insertion"] += 1
             insertion_nucleotides[delta_char] += 1
         elif mode_char != '-' and delta_char == '-':
             mismatch_counts["Deletion"] += 1
             deletion_nucleotides[mode_char] += 1
-        elif mode_char != '-' and delta_char != '-' and mode_char != delta_char:
+        elif mode_char not in ['-', 'n', 'N'] and delta_char not in ['-', 'n', 'N'] and mode_char != delta_char:
             mismatch_counts["Substitution"] += 1
             substitution_counts[(delta_char, mode_char)] += 1
 
@@ -154,7 +97,7 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions, save_pa
     plt.savefig(os.path.join(save_path, 'mismatch_types_pie_chart.png'), dpi=300, bbox_inches='tight')
     plt.show()
 
-    # Bar Charts for Insertions and Deletions
+    # Bar Charts for Insertions and Deletions of different nucleotides
     print("\nGenerating insertion and deletion bar charts...")
     for label, nucleotide_counts in zip(["Insertion", "Deletion"], [insertion_nucleotides, deletion_nucleotides]):
         plt.figure(figsize=(8, 6))
@@ -166,7 +109,46 @@ def analyze_and_visualize_mismatches(alignment, mode_mismatch_positions, save_pa
         plt.savefig(os.path.join(save_path, f'{label.lower()}_nucleotide_frequencies.png'), dpi=300, bbox_inches='tight')
         plt.show()
 
-    generate_substitution_heatmap(alignment, mode_mismatch_positions, save_path='Output_Files')
+    # Print raw substitution counts
+    print("\nSubstitution Counts Breakdown:")
+    total_substitutions = sum(substitution_counts.values())
+    if total_substitutions == 0:
+        print("\nNo substitutions detected! Heatmap will remain empty.")
+        return
+
+    # print the counts for every combination in the terminal
+    for (sub, orig), count in substitution_counts.items():
+        print(f"{orig} → {sub}: {count}")
+
+    # Create substitution matrix with percentages
+    substitution_matrix = pd.DataFrame(0, index=nucleotides, columns=nucleotides, dtype=float)
+    for (sub, orig), count in substitution_counts.items():
+        if orig in nucleotides and sub in nucleotides:
+            substitution_matrix.at[orig, sub] = (count / total_substitutions) * 100
+
+    # Print substitution matrix
+    print("\nSubstitution Matrix (Percentages):")
+    print(substitution_matrix)
+
+    # Plot heatmap
+    sns.heatmap(
+        substitution_matrix,
+        annot=True,
+        cmap='Blues',
+        fmt='.2f',
+        cbar_kws={'label': 'Percentage (%)'},
+        annot_kws={"size": 14}  # Increase font size for annotations
+    )
+    plt.title('Substitution Frequency Heatmap (Percentages)', fontsize=16)
+    plt.xlabel('Substituted Nucleotide', fontsize=14)
+    plt.ylabel('Original Nucleotide', fontsize=14)
+
+    # Save Heatmap to png file
+    os.makedirs(save_path, exist_ok=True)
+    plt.savefig(os.path.join(save_path, 'substitution_heatmap.png'), dpi=300, bbox_inches='tight')
+    plt.show()
+
+    print(f"\nHeatmap saved as '{os.path.join(save_path, 'substitution_heatmap.png')}'")
 
     print(f"\nAll visualizations saved in '{save_path}'. Analysis complete!")
 
@@ -215,12 +197,10 @@ def extract_columns_consensus_vs_mode(alignment, exclude_unknowns=False):
     print(f"Found {len(mode_mismatch_positions)} mismatched columns.")
     return mode_mismatch_positions, extracted_columns
 
-
 def save_to_fasta_with_indices(
     extracted_columns, column_indices, 
     index_file='Output_Files\\indices_dissimilar_cols.txt', 
-    output_fasta_file='Output_Files\\dissimilar_cols.fasta'
-):
+    output_fasta_file='Output_Files\\dissimilar_cols.fasta'):
     """
     Save extracted columns to a fasta file and their indices in the 11 seq alignment to a separate txt file.
 
@@ -233,6 +213,7 @@ def save_to_fasta_with_indices(
     print(f"Saving column indices to '{index_file}'...")
     with open(index_file, 'w') as index_f:
         index_f.write("# Extracted Column Indices\n")
+        # Write the indeces successively to the text file on one line
         index_f.write(', '.join(map(str, column_indices)) + '\n')
     print(f"Column indices saved to '{index_file}'.")
 
@@ -243,7 +224,6 @@ def save_to_fasta_with_indices(
     ]
     SeqIO.write(records, output_fasta_file, "fasta")
     print(f"Extracted columns saved to '{output_fasta_file}'.")
-
 
 def run_mafft_add(delta_file, omicron_file, output_file):
     """
@@ -280,12 +260,25 @@ def run_mafft_add(delta_file, omicron_file, output_file):
         return []
 
 def group_indices(indices):
+    """
+    Group the indices of dissimilar columns into contiguous regions and separate single columns.
+
+    Parameters:
+    - indices (list): List of indices of dissimilar columns separately.
+
+    Returns:
+    - regions (list): Lists of indices, each representing one contiguous region.
+    - len(regions) (int): The number of regions found (more than 2 successive columns).
+    - single_columns_count (int): The number of single columns found.
+    - single_columns_indices (list): Indices of single columns.
+    """
     if not indices:
-        return [], 0, 0
+        return [], 0, 0, []
     
     indices = sorted(set(indices))  # Ensure sorted and no duplicates
-    regions = []
-    single_columns = 0
+    regions = []  # List to store contiguous regions
+    single_columns_count = 0  # Count of single columns
+    single_columns_indices = []  # List to store indices of single columns
     
     current_region = [indices[0]]
     
@@ -296,51 +289,51 @@ def group_indices(indices):
         else:
             # End of a region
             if len(current_region) == 1:
-                single_columns += 1
+                single_columns_count += 1
+                single_columns_indices.append(current_region[0])
             else:
                 regions.append(current_region)
             current_region = [indices[i]]
     
-    # Handle the last region
+    # Handle the last region similarly
     if len(current_region) == 1:
-        single_columns += 1
+        single_columns_count += 1
+        single_columns_indices.append(current_region[0])
     else:
         regions.append(current_region)
     
-    return regions, len(regions), single_columns
+    return regions, len(regions), single_columns_count, single_columns_indices
 
-def visualize_regions(regions, num_regions, single_columns, save_path='Output_Files\\'):
+def visualize_regions(regions, num_regions, single_columns_count, single_columns_indeces, save_path='Output_Files\\'):
     """
     Visualizes statistics and insights about grouped regions and single columns.
     
     Parameters:
         regions (list): A list of grouped regions (each region is a list of indices).
         num_regions (int): The number of grouped regions.
-        single_columns (int): The number of single isolated indices.
+        single_columns (int): The number of single isolated indices of dissimilar sinle columns (SNPs).
         save_path (str): The directory path where figures will be saved. Default is 'figures'.
     
     """
-    
     # Statistics
     region_sizes = [len(region) for region in regions]
 
     max_region_size = max(region_sizes) if region_sizes else 0
     min_region_size = min(region_sizes) if region_sizes else 0
-    total_indices = sum(region_sizes) + single_columns
+    total_count = sum(region_sizes) + single_columns_count
     coverage_by_regions = sum(region_sizes)
-    percentage_single_columns = (single_columns / total_indices) * 100 if total_indices > 0 else 0
+    percentage_single_columns = (single_columns_count / total_count) * 100 if total_count > 0 else 0
     
     # Print to termial
-    print(f"Number of Originally Extracted Indices: {total_indices}")
-    # print("Grouped Regions:", regions)
+    print(f"Number of Originally Extracted Indices: {total_count}")
     print(f"Number of Regions: {num_regions}")
-    print(f"Number of Single Columns: {single_columns}")
+    print(f"Number of Single Columns: {single_columns_count}")
     print(f"Largest Region Size: {max_region_size}")
     print(f"Smallest Region Size: {min_region_size}")
     print(f"Coverage by Regions: {coverage_by_regions}")
     print(f"Percentage of Single Columns: {percentage_single_columns:.2f}%")
     
-    # Visualization 1: Bar Plot of Region Sizes
+    # Bar Plot of Region Sizes
     plt.figure(figsize=(10, 6))
     plt.bar(range(len(region_sizes)), region_sizes)
     plt.title('Sizes of Grouped Regions')
@@ -349,26 +342,57 @@ def visualize_regions(regions, num_regions, single_columns, save_path='Output_Fi
     plt.savefig(os.path.join(save_path, 'region_sizes_bar_plot.png'))
     plt.show()
     
-    # Visualization 2: Pie Chart of Single Columns vs Grouped Regions
+    # Pie Chart of the length covered by Single Columns vs Grouped Regions
     labels = ['Grouped Indices', 'Single Columns']
-    sizes = [coverage_by_regions, single_columns]
+    sizes = [coverage_by_regions, single_columns_count]
     plt.figure(figsize=(8, 8))
     plt.pie(sizes, labels=labels, autopct='%1.1f%%')
     plt.title('Proportion of Grouped Indices vs Single Columns')
     plt.savefig(os.path.join(save_path, 'grouped_vs_single_pie_chart.png'))
     plt.show()
     
-    # Visualization 3: Scatter Plot of All Indices
-    all_indices = [index for region in regions for index in region] + [single_columns]
+    # Scatter Plot Single Columns
     plt.figure(figsize=(10, 3))
-    plt.scatter(all_indices, [1] * len(all_indices), label='All Indices')
-    for region in regions:
-        plt.scatter(region, [1] * len(region), label=f'Region {region[0]}-{region[-1]}')
-    plt.title('Distribution of Indices')
+    plt.scatter(single_columns_indeces, [1] * len(single_columns_indeces), 
+                label='Single Columns', 
+                marker='x', 
+                color='red', 
+                s=50)
+    plt.title('Single Columns Distribution')
     plt.xlabel('Index Value')
     plt.yticks([])
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
-    plt.savefig(os.path.join(save_path, 'indices_distribution_scatter_plot.png'))
+
+    plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.15), frameon=False)
+
+    # Save and Display Single Columns Plot
+    plt.savefig(os.path.join(save_path, 'single_columns_scatter_plot.png'), dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+    # Scatter Plot of Regions with Different Colors
+    plt.figure(figsize=(10, 3))
+    # Generate random distinct colors for each region
+    region_colors = [f'#{random.randint(0, 0xFFFFFF):06x}' for _ in regions]
+
+    # Plot each region and add to legend with start index and length
+    legend_handles = []
+    for i, region in enumerate(regions):
+        plt.scatter(region, [1] * len(region), 
+                    color=region_colors[i], 
+                    marker='o', 
+                    s=50)
+        legend_label = f'Region {region[0]} (Length: {len(region)})'
+        legend_handles.append(plt.Line2D([0], [0], marker='o', color=region_colors[i], lw=0, label=legend_label))
+
+    plt.title('Regions Distribution')
+    plt.xlabel('Index Value')
+    plt.yticks([])
+
+    # Custom Legend to carry the starting index and length of every region
+    plt.legend(handles=legend_handles, loc='upper center', bbox_to_anchor=(0.5, -0.15), ncol=2, frameon=False)
+
+    # Save and Display Regions Plot
+    plt.savefig(os.path.join(save_path, 'regions_scatter_plot.png'), dpi=300, bbox_inches='tight')
     plt.show()
 
 
@@ -401,9 +425,10 @@ if __name__ == "__main__":
     print("\nAnalyzing mismatch types...")
     analyze_and_visualize_mismatches(alignment, consensus_indices)
 
-    # Group Indices
-    regions, num_regions, single_columns = group_indices(consensus_indices)
-    visualize_regions(regions, num_regions, single_columns)
+    # Group Indices to regions, single columns and count the number of each
+    regions, num_regions, single_columns_count, single_columns_indeces = group_indices(consensus_indices)
+    
+    visualize_regions(regions, num_regions, single_columns_count, single_columns_indeces)
 
     print('\n')
     _, _ = extract_columns_consensus_vs_mode(alignment, exclude_unknowns=False)

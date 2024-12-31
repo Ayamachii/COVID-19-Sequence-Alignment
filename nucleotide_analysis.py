@@ -113,7 +113,7 @@ width = 0.35  # Bar width
 ax.bar(x - width/2, data[:, 0], width, label=groups[0])
 ax.bar(x + width/2, data[:, 1], width, label=groups[1])
 
-# Customization
+# Customization of the figure
 ax.set_xticks(x)
 ax.set_xticklabels(categories)
 ax.set_ylabel("Percentage (%)")
