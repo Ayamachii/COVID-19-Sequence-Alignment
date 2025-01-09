@@ -1,15 +1,5 @@
 # 🧬 **Comparative Genomic Analysis of SARS-CoV-2 Delta and Omicron Variants in Ghana**
 
-**Team 4:**  
-- **Aya Eyad**  
-- **Shehab Mohamed**  
-- **Farah Osama**  
-- **Camellia Marwan**
-
-**Under Supervision of:**  
-- **Dr. Ibrahim Yousef**  
-- **Eng. Yara Mahrous**
-
 ---
 
 ## 📚 **Project Overview**
